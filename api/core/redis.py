@@ -9,7 +9,13 @@ except Exception:  # pragma: no cover - fallback for environments without redis>
 
 from api.core.config import get_settings
 
-redis_client = aioredis.from_url(get_settings().redis_url, encoding="utf-8", decode_responses=True)
+redis_client = aioredis.from_url(
+    get_settings().redis_url,
+    encoding="utf-8",
+    decode_responses=True,
+    socket_connect_timeout=10,
+    socket_timeout=10,
+)
 
 
 async def get_redis() -> AsyncGenerator[aioredis.Redis, None]:

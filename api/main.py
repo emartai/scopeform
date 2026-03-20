@@ -19,8 +19,18 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.db_healthy = await check_database_connection()
-    app.state.redis_healthy = await check_redis_connection()
+    import asyncio
+
+    db_task = asyncio.create_task(check_database_connection())
+    redis_task = asyncio.create_task(check_redis_connection())
+    try:
+        app.state.db_healthy = await asyncio.wait_for(db_task, timeout=15)
+    except Exception:
+        app.state.db_healthy = False
+    try:
+        app.state.redis_healthy = await asyncio.wait_for(redis_task, timeout=15)
+    except Exception:
+        app.state.redis_healthy = False
 
     try:
         yield
