@@ -103,30 +103,56 @@ scopeform deploy
 
 Your scoped token is written to `.env` as `SCOPEFORM_TOKEN`. Use it in your agent instead of raw API keys.
 
-### 5. Use the token in your agent
+### 5. Add your provider key in the dashboard
 
-**Python**
+Go to **[Dashboard → Integrations](https://scopeform-web.vercel.app/dashboard/integrations)** and add your OpenAI (or Anthropic / GitHub) API key. Scopeform stores it encrypted and uses it to forward requests on your agent's behalf.
+
+### 6. Point your SDK at the Scopeform proxy
+
+Instead of calling OpenAI directly, point your SDK's base URL at Scopeform. Scopeform validates the token, checks scopes, logs the call, then forwards to the real provider.
+
+**Python (OpenAI)**
 ```python
 import os
 import openai
 
-# Scopeform validates this token and enforces your declared scopes
-openai.api_key = os.environ["SCOPEFORM_TOKEN"]
+openai.api_key  = os.environ["SCOPEFORM_TOKEN"]
+openai.base_url = "https://scopeform-production-f0b7.up.railway.app/api/v1/proxy/openai/v1"
+
+response = openai.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hello"}],
+)
 ```
 
-**Node.js**
-```js
-const token = process.env.SCOPEFORM_TOKEN;
-// Pass to your OpenAI / Anthropic / GitHub client
+**Python (Anthropic)**
+```python
+import os
+import anthropic
+
+client = anthropic.Anthropic(
+    api_key=os.environ["SCOPEFORM_TOKEN"],
+    base_url="https://scopeform-production-f0b7.up.railway.app/api/v1/proxy/anthropic/v1",
+)
 ```
+
+**Node.js (OpenAI)**
+```js
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.SCOPEFORM_TOKEN,
+  baseURL: "https://scopeform-production-f0b7.up.railway.app/api/v1/proxy/openai/v1",
+});
+```
+
+If the agent tries to call a service or action not in its `scopeform.yml`, the proxy returns `403` and logs the blocked attempt — no call reaches the provider.
 
 ---
 
 ## Dashboard
 
 Sign in at **[scopeform-web.vercel.app](https://scopeform-web.vercel.app)** to see all your agents, their status, token expiry, and last activity. Revoke any agent's tokens with one click.
-
-![Dashboard showing agent list with status badges and revoke buttons](https://via.placeholder.com/800x400/111111/22c55e?text=Dashboard+screenshot)
 
 ---
 
