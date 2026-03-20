@@ -1,6 +1,7 @@
 {
   "name": "scopeform",
   "private": true,
+  "packageManager": "npm@9.9.4",
   "workspaces": [
     "cli-node",
     "web"
