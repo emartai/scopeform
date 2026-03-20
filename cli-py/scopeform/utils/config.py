@@ -24,6 +24,10 @@ def save_config(data: dict[str, Any]) -> None:
 
 
 def load_config() -> dict[str, Any] | None:
+    env_token = os.environ.get("SCOPEFORM_TOKEN")
+    if env_token:
+        return {"token": env_token, "email": "ci"}
+
     if not CONFIG_PATH.exists():
         return None
 

@@ -98,7 +98,7 @@ def _build_success_table(agent_name: str, environment: str, expires_at: str) -> 
 
 
 def deploy_command(
-    api_url: str = typer.Option("https://api.scopeform.dev", "--api-url", help="Scopeform API base URL."),
+    api_url: str = typer.Option("https://scopeform-production-f0b7.up.railway.app", "--api-url", help="Scopeform API base URL."),
 ) -> None:
     """Register the current project as an agent and write its scoped token to .env."""
     config = _require_login()

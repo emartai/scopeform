@@ -21,6 +21,11 @@ export function saveConfig(data: ScopeformConfig): void {
 }
 
 export function loadConfig(): ScopeformConfig | null {
+  const envToken = process.env.SCOPEFORM_TOKEN;
+  if (envToken) {
+    return { token: envToken, email: "ci" };
+  }
+
   if (!fs.existsSync(CONFIG_PATH)) {
     return null;
   }

@@ -1,13 +1,23 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SCOPEFORM EXAMPLE WORKFLOW
+# Copy this into your own agent repo and add SCOPEFORM_TOKEN to your secrets.
+#
+# How to get your token:
+#   1. Sign up at https://scopeform-web.vercel.app/sign-up
+#   2. Run: scopeform login && cat ~/.scopeform/config.json
+#   3. Copy the "token" value → repo Settings → Secrets → SCOPEFORM_TOKEN
+# ─────────────────────────────────────────────────────────────────────────────
 name: Deploy agent with Scopeform
 
-# This is a reference example for users to copy into their own agent repos.
-# It is intentionally disabled in this repository.
+# Keep workflow_dispatch so this reference workflow never runs automatically
+# in this repo. In your own repo, change to: push: branches: [main]
 on:
-  workflow_dispatch:  # manual trigger only — not run automatically
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -15,34 +25,21 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Scopeform
+      - name: Install Scopeform CLI
         run: pip install scopeform
 
-      - name: Authenticate Scopeform CLI
-        env:
-          SCOPEFORM_API_KEY: ${{ secrets.SCOPEFORM_API_KEY }}
-        run: |
-          mkdir -p "$HOME/.scopeform"
-          cat > "$HOME/.scopeform/config.json" <<EOF
-          {
-            "token": "${SCOPEFORM_API_KEY}",
-            "email": "github-actions@scopeform.dev",
-            "expires_at": "2099-01-01T00:00:00Z"
-          }
-          EOF
-          chmod 600 "$HOME/.scopeform/config.json"
-
-      - name: Issue scoped token
+      - name: Deploy agent and issue scoped token
+        # SCOPEFORM_TOKEN env var is read automatically — no login step needed
         run: scopeform deploy
         env:
-          SCOPEFORM_API_KEY: ${{ secrets.SCOPEFORM_API_KEY }}
+          SCOPEFORM_TOKEN: ${{ secrets.SCOPEFORM_TOKEN }}
 
-      - name: Export SCOPEFORM_TOKEN
-        shell: bash
-        run: |
-          echo "SCOPEFORM_TOKEN=$(grep '^SCOPEFORM_TOKEN=' .env | cut -d= -f2-)" >> "$GITHUB_ENV"
+      - name: Load issued token into environment
+        run: echo "AGENT_TOKEN=$(grep '^SCOPEFORM_TOKEN=' .env | cut -d= -f2-)" >> "$GITHUB_ENV"
 
+      # ── Replace the step below with your actual agent entrypoint ───────────
       - name: Run agent
         run: python agent.py
         env:
-          SCOPEFORM_TOKEN: ${{ env.SCOPEFORM_TOKEN }}
+          SCOPEFORM_TOKEN: ${{ env.AGENT_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

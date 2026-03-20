@@ -38,7 +38,7 @@ def logs_command(
     limit: int = typer.Option(20, "--limit", min=1, help="Maximum number of log entries to show."),
     service: str | None = typer.Option(None, "--service", help="Filter logs by service."),
     blocked_only: bool = typer.Option(False, "--blocked-only", help="Show only blocked calls."),
-    api_url: str = typer.Option("https://api.scopeform.dev", "--api-url", help="Scopeform API base URL."),
+    api_url: str = typer.Option("https://scopeform-production-f0b7.up.railway.app", "--api-url", help="Scopeform API base URL."),
 ) -> None:
     """Display recent call logs for an agent."""
     config = _require_login()

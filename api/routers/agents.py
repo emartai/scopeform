@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,8 +13,11 @@ from api.core.deps import get_current_org_id
 from api.core.redis import redis_client
 from api.core.token import revoke_token
 from api.models.agent import Agent
+from api.models.log import CallLog
 from api.models.token import Token
 from api.schemas.agent import AgentCreate, AgentListResponse, AgentResponse, AgentUpdate
+
+FREE_TIER_AGENT_LIMIT = 5
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 PROBLEM_RESPONSES = {
@@ -105,6 +108,14 @@ async def create_agent(
     db: AsyncSession = Depends(get_db),
 ) -> AgentResponse:
     """Register a new agent for the authenticated organisation."""
+    agent_count = await db.scalar(select(func.count(Agent.id)).where(Agent.org_id == org_id))
+    if (agent_count or 0) >= FREE_TIER_AGENT_LIMIT:
+        raise _problem(
+            status.HTTP_403_FORBIDDEN,
+            "Free Tier Limit",
+            f"Free tier allows up to {FREE_TIER_AGENT_LIMIT} agents. Upgrade your plan to register more.",
+        )
+
     existing_agent = await db.scalar(
         select(Agent).where(Agent.org_id == org_id, Agent.name == payload.name)
     )
@@ -139,17 +150,33 @@ async def create_agent(
     return AgentResponse.model_validate(agent)
 
 
+def _last_seen_subquery():
+    return (
+        select(CallLog.agent_id, func.max(CallLog.called_at).label("last_seen_at"))
+        .group_by(CallLog.agent_id)
+        .subquery()
+    )
+
+
 @router.get("", response_model=AgentListResponse, responses={401: PROBLEM_RESPONSES[401]})
 async def list_agents(
     org_id: UUID = Depends(get_current_org_id),
     db: AsyncSession = Depends(get_db),
 ) -> AgentListResponse:
     """List all agents belonging to the authenticated organisation."""
-    agents = (await db.scalars(select(Agent).where(Agent.org_id == org_id))).all()
-    return AgentListResponse(
-        items=[AgentResponse.model_validate(agent) for agent in agents],
-        total=len(agents),
-    )
+    last_seen = _last_seen_subquery()
+    rows = (
+        await db.execute(
+            select(Agent, last_seen.c.last_seen_at)
+            .outerjoin(last_seen, Agent.id == last_seen.c.agent_id)
+            .where(Agent.org_id == org_id)
+        )
+    ).all()
+    items = [
+        AgentResponse.model_validate(agent).model_copy(update={"last_seen_at": last_seen_at})
+        for agent, last_seen_at in rows
+    ]
+    return AgentListResponse(items=items, total=len(items))
 
 
 @router.get("/{agent_id}", response_model=AgentResponse, responses=PROBLEM_RESPONSES)
@@ -159,11 +186,19 @@ async def get_agent(
     db: AsyncSession = Depends(get_db),
 ) -> AgentResponse:
     """Return a single agent if it belongs to the authenticated organisation."""
-    agent = await _get_agent_for_org(db, agent_id, org_id)
-    if agent is None:
+    last_seen = _last_seen_subquery()
+    row = (
+        await db.execute(
+            select(Agent, last_seen.c.last_seen_at)
+            .outerjoin(last_seen, Agent.id == last_seen.c.agent_id)
+            .where(Agent.id == agent_id, Agent.org_id == org_id)
+        )
+    ).first()
+    if row is None:
         raise _problem(status.HTTP_404_NOT_FOUND, "Not Found", "Agent not found.")
 
-    return AgentResponse.model_validate(agent)
+    agent, last_seen_at = row
+    return AgentResponse.model_validate(agent).model_copy(update={"last_seen_at": last_seen_at})
 
 
 @router.patch("/{agent_id}/status", response_model=AgentResponse, responses=PROBLEM_RESPONSES)

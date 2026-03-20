@@ -30,7 +30,7 @@ export function AgentsPageClient() {
       try {
         const response = await api.listAgents();
         if (!cancelled) {
-          setAgents(response.items);
+          setAgents(response.items.map((a) => ({ ...a, last_active_at: a.last_seen_at })));
         }
       } catch {
         if (!cancelled) {

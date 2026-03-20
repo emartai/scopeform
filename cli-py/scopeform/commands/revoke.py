@@ -20,7 +20,7 @@ def _require_login() -> dict:
 
 def revoke_command(
     agent_name: str,
-    api_url: str = typer.Option("https://api.scopeform.dev", "--api-url", help="Scopeform API base URL."),
+    api_url: str = typer.Option("https://scopeform-production-f0b7.up.railway.app", "--api-url", help="Scopeform API base URL."),
 ) -> None:
     """Revoke all active tokens for an agent in the current organisation."""
     config = _require_login()

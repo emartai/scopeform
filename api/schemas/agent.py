@@ -93,6 +93,7 @@ class AgentResponse(BaseModel):
     status: AgentStatus
     created_at: datetime
     updated_at: datetime
+    last_seen_at: datetime | None = None
 
 
 class AgentListResponse(BaseModel):
