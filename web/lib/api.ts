@@ -47,10 +47,24 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+export type ScopeDefinition = {
+  service: "openai" | "anthropic" | "github";
+  actions: string[];
+};
+
+export type AgentCreatePayload = {
+  name: string;
+  owner_email: string;
+  environment: "production" | "staging" | "development";
+  scopes: ScopeDefinition[];
+};
+
 export const api = {
   health: () => apiFetch<{ status: string; db: boolean; redis: boolean }>("/health"),
   listAgents: () => apiFetch<{ items: Agent[]; total: number }>("/agents"),
   getAgent: (agentId: string) => apiFetch<Agent>(`/agents/${agentId}`),
+  createAgent: (payload: AgentCreatePayload) =>
+    apiFetch<Agent>("/agents", { method: "POST", body: JSON.stringify(payload) }),
   revokeAgentTokens: (agentId: string) =>
     apiFetch<{ revoked: boolean; count: number }>("/tokens/revoke", {
       method: "POST",

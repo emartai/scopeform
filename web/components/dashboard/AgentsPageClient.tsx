@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { AgentTable } from "@/components/agents/AgentTable";
+import { RegisterAgentModal } from "@/components/agents/RegisterAgentModal";
 import { Toast } from "@/components/ui/Toast";
 import { api, type Agent } from "@/lib/api";
 
@@ -94,9 +95,12 @@ export function AgentsPageClient() {
             {loading ? "Loading..." : `${agents.length} ${agents.length === 1 ? "agent" : "agents"}`}
           </span>
         </div>
-        <button className="inline-flex h-8 items-center rounded-[6px] bg-white px-3 text-[13px] font-medium text-brand-bg">
-          Register Agent
-        </button>
+        <RegisterAgentModal
+          onCreated={(agent) => {
+            setAgents((prev) => [...prev, agent as AgentListItem]);
+            setToast({ message: `Agent "${agent.name}" registered`, tone: "success" });
+          }}
+        />
       </div>
       <AgentTable agents={agents} loading={loading} onRevoke={handleRevoke} />
       {toast ? <Toast message={toast.message} tone={toast.tone} /> : null}
