@@ -16,10 +16,10 @@ export default function HomePage() {
           <Logo size="md" showWordmark />
           <div className="flex items-center gap-3">
             <Link href="/sign-in" className="text-[13px] text-[#a1a1aa]">
-              Login
+              Sign in
             </Link>
             <Link
-              href="/dashboard"
+              href="/sign-up"
               className="inline-flex h-8 items-center rounded-[6px] bg-white px-3 text-[13px] font-medium text-brand-bg"
             >
               Get Started

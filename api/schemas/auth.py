@@ -12,6 +12,27 @@ class AuthTokenRequest(BaseModel):
     clerk_session_token: str
 
 
+class RegisterRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"example": {"email": "user@example.com", "password": "secret", "org_name": "acme"}},
+    )
+
+    email: EmailStr
+    password: str
+    org_name: str | None = None
+
+
+class LoginRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"example": {"email": "user@example.com", "password": "secret"}},
+    )
+
+    email: EmailStr
+    password: str
+
+
 class AuthTokenResponse(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
