@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 10 10 10;
+  --foreground: 255 255 255;
+  --card: 17 17 17;
+  --card-foreground: 255 255 255;
+  --popover: 17 17 17;
+  --popover-foreground: 255 255 255;
+  --primary: 255 255 255;
+  --primary-foreground: 10 10 10;
+  --secondary: 26 26 26;
+  --secondary-foreground: 161 161 170;
+  --muted: 22 22 22;
+  --muted-foreground: 82 82 91;
+  --accent: 26 26 26;
+  --accent-foreground: 255 255 255;
+  --destructive: 239 68 68;
+  --destructive-foreground: 255 255 255;
+  --border: 31 31 31;
+  --input: 17 17 17;
+  --ring: 63 63 70;
+  --radius: 0.5rem;
+}
+
+* {
+  border-color: rgb(var(--border));
+}
+
+html {
+  background: #0a0a0a;
+}
+
+body {
+  background: #0a0a0a;
+  color: #ffffff;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.font-mono {
+  font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+}
+
+.bg-shimmer {
+  background: linear-gradient(90deg, #161616 25%, #1f1f1f 50%, #161616 75%);
+  background-size: 200% 100%;
+}

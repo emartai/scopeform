@@ -1,0 +1,16 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["api", "cli-py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = [
+  "B008",  # FastAPI uses Depends() in function defaults — this is the intended pattern
+]
+
+[tool.pytest.ini_options]
+testpaths = ["api/tests", "cli-py/tests"]
+pythonpath = ["api", "cli-py"]
+addopts = "-ra"
+asyncio_default_fixture_loop_scope = "function"

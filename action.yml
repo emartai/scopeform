@@ -1,0 +1,54 @@
+name: Scopeform Deploy
+description: Install Scopeform, issue a scoped agent token, and export SCOPEFORM_TOKEN for later workflow steps.
+
+inputs:
+  api-key:
+    description: Scopeform API key stored in GitHub Actions secrets.
+    required: true
+  api-url:
+    description: Override the Scopeform API base URL.
+    required: false
+    default: https://api.scopeform.dev
+  python-version:
+    description: Python version used to install and run the Scopeform CLI.
+    required: false
+    default: "3.11"
+  working-directory:
+    description: Directory containing scopeform.yml.
+    required: false
+    default: .
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install Scopeform CLI
+      shell: bash
+      run: pip install scopeform
+
+    - name: Authenticate Scopeform CLI
+      shell: bash
+      run: |
+        mkdir -p "$HOME/.scopeform"
+        cat > "$HOME/.scopeform/config.json" <<EOF
+        {
+          "token": "${{ inputs.api-key }}",
+          "email": "github-actions@scopeform.dev",
+          "expires_at": "2099-01-01T00:00:00Z"
+        }
+        EOF
+        chmod 600 "$HOME/.scopeform/config.json"
+
+    - name: Run scopeform deploy
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: scopeform deploy --api-url "${{ inputs.api-url }}"
+
+    - name: Export SCOPEFORM_TOKEN
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "SCOPEFORM_TOKEN=$(grep '^SCOPEFORM_TOKEN=' .env | cut -d= -f2-)" >> "$GITHUB_ENV"

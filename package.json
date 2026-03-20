@@ -1,0 +1,17 @@
+{
+  "name": "scopeform",
+  "private": true,
+  "workspaces": [
+    "cli-node",
+    "web"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4"
+  }
+}

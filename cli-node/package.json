@@ -1,0 +1,52 @@
+{
+  "name": "scopeform",
+  "version": "0.1.0",
+  "description": "Identity and access management for AI agents",
+  "bin": {
+    "scopeform": "./dist/index.js"
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.ts",
+    "test": "jest",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "homepage": "https://scopeform.dev",
+  "bugs": {
+    "url": "https://github.com/scopeform/scopeform/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scopeform/scopeform.git",
+    "directory": "cli-node"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "iam",
+    "security",
+    "cli",
+    "scopeform"
+  ],
+  "dependencies": {
+    "axios": "^1.8.4",
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "inquirer": "^12.4.2",
+    "js-yaml": "^4.1.0",
+    "ora": "^8.2.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.13.10",
+    "axios-mock-adapter": "^2.1.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
+  }
+}

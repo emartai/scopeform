@@ -1,0 +1,48 @@
+name: Deploy agent with Scopeform
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Scopeform
+        run: pip install scopeform
+
+      - name: Authenticate Scopeform CLI
+        env:
+          SCOPEFORM_API_KEY: ${{ secrets.SCOPEFORM_API_KEY }}
+        run: |
+          mkdir -p "$HOME/.scopeform"
+          cat > "$HOME/.scopeform/config.json" <<EOF
+          {
+            "token": "${SCOPEFORM_API_KEY}",
+            "email": "github-actions@scopeform.dev",
+            "expires_at": "2099-01-01T00:00:00Z"
+          }
+          EOF
+          chmod 600 "$HOME/.scopeform/config.json"
+
+      - name: Issue scoped token
+        run: scopeform deploy
+        env:
+          SCOPEFORM_API_KEY: ${{ secrets.SCOPEFORM_API_KEY }}
+
+      - name: Export SCOPEFORM_TOKEN
+        shell: bash
+        run: |
+          echo "SCOPEFORM_TOKEN=$(grep '^SCOPEFORM_TOKEN=' .env | cut -d= -f2-)" >> "$GITHUB_ENV"
+
+      - name: Run agent
+        run: python agent.py
+        env:
+          SCOPEFORM_TOKEN: ${{ env.SCOPEFORM_TOKEN }}

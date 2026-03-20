@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "scopeform"
+version = "0.1.0"
+description = "Identity and access management for AI agents"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [
+  { name = "Scopeform", email = "team@scopeform.dev" },
+]
+keywords = ["ai", "agents", "iam", "security", "cli", "scopeform"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Topic :: Security",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "typer[all]==0.15.2",
+  "rich==13.9.4",
+  "pyyaml==6.0.2",
+  "httpx==0.28.1",
+  "pydantic==2.7.1",
+]
+
+[project.urls]
+Homepage = "https://scopeform.dev"
+Repository = "https://github.com/scopeform/scopeform"
+Documentation = "https://scopeform.dev/docs"
+
+[project.scripts]
+scopeform = "scopeform.main:app"
+
+[project.optional-dependencies]
+dev = [
+  "pytest==8.3.5",
+  "pytest-asyncio==0.25.3",
+  "respx==0.22.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["scopeform"]
