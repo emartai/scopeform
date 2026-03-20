@@ -175,24 +175,29 @@ async def proxy(
     }
     forward_headers.update(_provider_headers(service, real_api_key))
 
-    async def _stream(response: httpx.Response) -> AsyncIterator[bytes]:
-        async for chunk in response.aiter_bytes():
-            yield chunk
+    # Keep the client open for the full duration of streaming
+    client = httpx.AsyncClient(timeout=120)
+    provider_response = await client.send(
+        client.build_request(
+            method=request.method,
+            url=provider_url,
+            headers=forward_headers,
+            content=body,
+            params=dict(request.query_params),
+        ),
+        stream=True,
+    )
 
-    async with httpx.AsyncClient(timeout=120) as client:
-        provider_response = await client.send(
-            client.build_request(
-                method=request.method,
-                url=provider_url,
-                headers=forward_headers,
-                content=body,
-                params=dict(request.query_params),
-            ),
-            stream=True,
-        )
+    async def _stream_and_close() -> AsyncIterator[bytes]:
+        try:
+            async for chunk in provider_response.aiter_bytes():
+                yield chunk
+        finally:
+            await provider_response.aclose()
+            await client.aclose()
 
     return StreamingResponse(
-        _stream(provider_response),
+        _stream_and_close(),
         status_code=provider_response.status_code,
         headers={
             k: v
