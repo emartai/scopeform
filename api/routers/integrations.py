@@ -4,6 +4,7 @@ import uuid
 
 from cryptography.fernet import Fernet, InvalidToken
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -104,7 +105,7 @@ async def upsert_integration(
     )
 
 
-@router.delete("/{service}", status_code=204)
+@router.delete("/{service}", status_code=204, response_class=Response)
 async def delete_integration(
     service: str,
     org_id: uuid.UUID = Depends(get_current_org_id),
