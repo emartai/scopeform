@@ -105,12 +105,12 @@ async def upsert_integration(
     )
 
 
-@router.delete("/{service}", status_code=204, response_class=Response)
+@router.delete("/{service}")
 async def delete_integration(
     service: str,
     org_id: uuid.UUID = Depends(get_current_org_id),
     db: AsyncSession = Depends(get_db),
-) -> None:
+) -> Response:
     row = await db.scalar(
         select(OrgIntegration).where(
             OrgIntegration.org_id == org_id,
@@ -120,3 +120,4 @@ async def delete_integration(
     if row:
         await db.delete(row)
         await db.commit()
+    return Response(status_code=204)
