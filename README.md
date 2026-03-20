@@ -1,10 +1,5 @@
 <p align="center">
-  <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" width="48" height="48">
-    <rect width="48" height="48" rx="12" fill="#111111"/>
-    <circle cx="24" cy="24" r="15" stroke="white" stroke-width="2" stroke-opacity="0.45" fill="none"/>
-    <circle cx="24" cy="24" r="10" stroke="white" stroke-width="1" stroke-opacity="0.2" fill="none"/>
-    <circle cx="24" cy="24" r="5" fill="#22c55e"/>
-  </svg>
+  <img src="logo.svg" alt="Scopeform" width="96" height="96" />
 </p>
 
 <h1 align="center">Scopeform</h1>
