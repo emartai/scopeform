@@ -1,5 +1,8 @@
 name: Scopeform Deploy
 description: Install Scopeform, issue a scoped agent token, and export SCOPEFORM_TOKEN for later workflow steps.
+branding:
+  icon: shield
+  color: green
 
 inputs:
   token:
