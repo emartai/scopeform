@@ -11,6 +11,7 @@ from scopeform.commands import (
     login_command,
     logs_command,
     revoke_command,
+    status_command,
 )
 
 app = typer.Typer(
@@ -82,3 +83,8 @@ def logs(
         blocked_only=blocked_only,
         api_url=ctx.obj["api_url"],
     )
+
+
+@app.command("status")
+def status(ctx: typer.Context) -> None:
+    status_command(api_url=ctx.obj["api_url"])

@@ -8,6 +8,7 @@ from scopeform.commands.deploy import deploy_command
 from scopeform.commands.init import init_command
 from scopeform.commands.logs import logs_command
 from scopeform.commands.revoke import revoke_command
+from scopeform.commands.status import status_command
 from scopeform.utils.api_client import ScopeformConflictError
 
 
@@ -346,3 +347,122 @@ def test_logs_command_agent_not_found(monkeypatch, capsys):
 
     output = capsys.readouterr().out
     assert "Agent 'missing-agent' not found in your organisation." in output
+
+
+def test_status_command_renders_table(monkeypatch, tmp_path, capsys):
+    class FakeClient:
+        def __init__(self, base_url, token):
+            self.base_url = base_url
+            self.token = token
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return None
+
+        def list_agents(self):
+            return {
+                "items": [
+                    {
+                        "id": "agent-123",
+                        "name": "alpha-agent",
+                        "environment": "production",
+                        "status": "active",
+                        "last_seen_at": "2026-03-20T12:00:00Z",
+                        "scopes": [{"service": "openai", "actions": ["chat.completions"]}],
+                    }
+                ],
+                "total": 1,
+            }
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "scopeform.yml").write_text(
+        yaml.safe_dump(
+            {
+                "identity": {
+                    "name": "alpha-agent",
+                    "owner": "owner@example.com",
+                    "environment": "production",
+                },
+                "scopes": [{"service": "openai", "actions": ["chat.completions"]}],
+                "ttl": "24h",
+                "integrations": {"ci": "none"},
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("scopeform.commands.status.load_config", lambda: {"token": "user-token"})
+    monkeypatch.setattr("scopeform.commands.status.ScopeformClient", FakeClient)
+
+    status_command(api_url="http://localhost:8000")
+
+    output = capsys.readouterr().out
+    assert "Status for alpha-agent" in output
+    assert "active" in output
+    assert "production" in output
+
+
+def test_status_command_missing_scopeform_yml(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("scopeform.commands.status.load_config", lambda: {"token": "user-token"})
+
+    with pytest.raises(click.exceptions.Exit):
+        status_command(api_url="http://localhost:8000")
+
+    output = capsys.readouterr().out
+    assert "Run `scopeform init` first" in output
+
+
+def test_status_command_not_logged_in(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("scopeform.commands.status.load_config", lambda: None)
+
+    with pytest.raises(click.exceptions.Exit):
+        status_command(api_url="http://localhost:8000")
+
+    output = capsys.readouterr().out
+    assert "Run `scopeform login` first" in output
+
+
+def test_status_command_agent_not_found(monkeypatch, tmp_path, capsys):
+    class FakeClient:
+        def __init__(self, base_url, token):
+            self.base_url = base_url
+            self.token = token
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return None
+
+        def list_agents(self):
+            return {"items": [], "total": 0}
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "scopeform.yml").write_text(
+        yaml.safe_dump(
+            {
+                "identity": {
+                    "name": "missing-agent",
+                    "owner": "owner@example.com",
+                    "environment": "production",
+                },
+                "scopes": [{"service": "openai", "actions": ["chat.completions"]}],
+                "ttl": "24h",
+                "integrations": {"ci": "none"},
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("scopeform.commands.status.load_config", lambda: {"token": "user-token"})
+    monkeypatch.setattr("scopeform.commands.status.ScopeformClient", FakeClient)
+
+    with pytest.raises(click.exceptions.Exit):
+        status_command(api_url="http://localhost:8000")
+
+    output = capsys.readouterr().out
+    assert "Agent 'missing-agent' not found. Run `scopeform deploy` first." in output
