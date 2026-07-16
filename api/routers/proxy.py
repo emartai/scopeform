@@ -18,15 +18,18 @@ The proxy:
   7. Returns the provider response, including streaming.
 """
 
+import json
 import uuid
+from datetime import UTC, datetime
 from typing import AsyncIterator
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.core import redis as redis_core
 from api.core.database import get_db
 from api.core.token import verify_token
 from api.models.integration import OrgIntegration
@@ -85,6 +88,36 @@ def _provider_headers(service: str, api_key: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {api_key}"}
 
 
+# ── Runtime limits (embedded in the scoped token) ─────────────────────────────
+
+def _parse_json_body(body: bytes) -> dict | None:
+    if not body:
+        return None
+    try:
+        parsed = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _hour_key(agent_id: str) -> str:
+    return f"limit:calls:{agent_id}:{datetime.now(UTC).strftime('%Y%m%d%H')}"
+
+
+def _day_key(agent_id: str) -> str:
+    return f"limit:tokens:{agent_id}:{datetime.now(UTC).strftime('%Y%m%d')}"
+
+
+def _extract_usage_tokens(service: str, data: dict) -> int:
+    """Total tokens consumed, from the provider's usage block (0 if absent)."""
+    usage = data.get("usage")
+    if not isinstance(usage, dict):
+        return 0
+    if service == "anthropic":
+        return int(usage.get("input_tokens", 0) or 0) + int(usage.get("output_tokens", 0) or 0)
+    return int(usage.get("total_tokens", 0) or 0)
+
+
 # ── Main proxy handler ────────────────────────────────────────────────────────
 
 @router.api_route("/{service}/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
@@ -127,26 +160,68 @@ async def proxy(
     # 3. Resolve action
     action = _resolve_action(service, request.method, f"/{path}")
 
-    # 4. Check scope
-    allowed = _scope_allows(scopes, service, action)
-
-    # 5. Log the call
-    db.add(
-        CallLog(
-            agent_id=agent_id,
-            token_id=token_row.id if token_row else None,
-            service=service,
-            action=action,
-            allowed=allowed,
+    async def _log_call(allowed: bool) -> None:
+        db.add(
+            CallLog(
+                agent_id=agent_id,
+                token_id=token_row.id if token_row else None,
+                service=service,
+                action=action,
+                allowed=allowed,
+            )
         )
-    )
-    await db.commit()
+        await db.commit()
 
-    if not allowed:
+    # 4. Check scope
+    if not _scope_allows(scopes, service, action):
+        await _log_call(False)
         raise HTTPException(
             403,
             detail=f"Scope '{service}:{action}' not permitted for this agent.",
         )
+
+    # 5. Enforce runtime limits carried in the token
+    body = await request.body()
+    limits: dict = payload.get("limits") or {}
+    request_json = _parse_json_body(body)
+
+    allowed_models = limits.get("models")
+    if allowed_models and request_json is not None:
+        requested_model = request_json.get("model")
+        if requested_model and requested_model not in allowed_models:
+            await _log_call(False)
+            raise HTTPException(
+                403,
+                detail=(
+                    f"Model '{requested_model}' is not in this agent's allowlist "
+                    f"({', '.join(allowed_models)})."
+                ),
+            )
+
+    max_calls = limits.get("max_calls_per_hour")
+    if max_calls:
+        hour_key = _hour_key(agent_id_str)
+        current_calls = await redis_core.redis_client.incr(hour_key)
+        if current_calls == 1:
+            await redis_core.redis_client.expire(hour_key, 3900)
+        if current_calls > int(max_calls):
+            await _log_call(False)
+            raise HTTPException(
+                429,
+                detail=f"Rate limit exceeded: {max_calls} calls/hour for this agent.",
+            )
+
+    max_tokens = limits.get("max_tokens_per_day")
+    if max_tokens:
+        used_raw = await redis_core.redis_client.get(_day_key(agent_id_str))
+        if used_raw is not None and int(used_raw) >= int(max_tokens):
+            await _log_call(False)
+            raise HTTPException(
+                429,
+                detail=f"Daily token budget exhausted: {max_tokens} tokens/day for this agent.",
+            )
+
+    await _log_call(True)
 
     # 6. Look up org's real API key for this service
     integration = await db.scalar(
@@ -165,7 +240,6 @@ async def proxy(
 
     # 7. Forward the request to the provider
     provider_url = f"{PROVIDER_BASE_URLS[service]}/{path}"
-    body = await request.body()
 
     # Pass through all headers except Authorization (replaced) and host
     forward_headers = {
@@ -174,6 +248,8 @@ async def proxy(
         if k.lower() not in ("authorization", "host", "content-length")
     }
     forward_headers.update(_provider_headers(service, real_api_key))
+
+    is_streaming_request = bool(request_json and request_json.get("stream"))
 
     # Keep the client open for the full duration of streaming
     client = httpx.AsyncClient(timeout=120)
@@ -187,6 +263,36 @@ async def proxy(
         ),
         stream=True,
     )
+
+    # Non-streaming + a daily token budget → buffer the JSON body so real
+    # provider usage can be metered. (Streaming responses pass through
+    # unmetered — their usage block is not reliably present.)
+    if max_tokens and not is_streaming_request:
+        try:
+            content = await provider_response.aread()
+        finally:
+            await provider_response.aclose()
+            await client.aclose()
+
+        response_json = _parse_json_body(content)
+        if provider_response.status_code < 400 and response_json is not None:
+            consumed = _extract_usage_tokens(service, response_json)
+            if consumed:
+                day_key = _day_key(agent_id_str)
+                total = await redis_core.redis_client.incrby(day_key, consumed)
+                if total == consumed:
+                    await redis_core.redis_client.expire(day_key, 100_000)
+
+        return Response(
+            content=content,
+            status_code=provider_response.status_code,
+            headers={
+                k: v
+                for k, v in provider_response.headers.items()
+                if k.lower() not in ("transfer-encoding", "content-length", "content-encoding")
+            },
+            media_type=provider_response.headers.get("content-type", "application/json"),
+        )
 
     async def _stream_and_close() -> AsyncIterator[bytes]:
         try:

@@ -80,12 +80,6 @@ export class ScopeformClient {
     }
   }
 
-  async exchangeAuthToken(clerkSessionToken: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>("POST", "/api/v1/auth/token", {
-      data: { clerk_session_token: clerkSessionToken },
-    });
-  }
-
   async login(email: string, password: string): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>("POST", "/api/v1/auth/login", {
       data: { email, password },

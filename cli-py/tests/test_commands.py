@@ -89,7 +89,7 @@ def test_deploy_success(monkeypatch, tmp_path, capsys):
             self.calls.append(("register_agent", payload))
             return {"id": "agent-123", "name": payload["name"]}
 
-        def issue_token(self, agent_id, ttl):
+        def issue_token(self, agent_id, ttl, limits=None):
             self.calls.append(("issue_token", agent_id, ttl))
             return {
                 "token": "secret-token-value",
@@ -160,7 +160,7 @@ def test_deploy_already_registered_agent(monkeypatch, tmp_path, capsys):
         def list_agents(self):
             return {"items": [{"id": "agent-123", "name": "alpha-agent"}], "total": 1}
 
-        def issue_token(self, agent_id, ttl):
+        def issue_token(self, agent_id, ttl, limits=None):
             assert agent_id == "agent-123"
             assert ttl == "24h"
             return {

@@ -10,6 +10,29 @@ from api.schemas.agent import Service
 TTL_PATTERN = r"^\d+[smhd]$"
 
 
+class TokenLimits(BaseModel):
+    """Optional runtime limits embedded in the scoped token.
+
+    Limits are part of the credential itself — a token carries not just what
+    an agent may call, but how hard it may call it.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "models": ["gpt-4o-mini"],
+                "max_calls_per_hour": 100,
+                "max_tokens_per_day": 200000,
+            }
+        },
+    )
+
+    models: list[str] | None = None
+    max_calls_per_hour: int | None = Field(default=None, gt=0)
+    max_tokens_per_day: int | None = Field(default=None, gt=0)
+
+
 class TokenIssueRequest(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -23,6 +46,7 @@ class TokenIssueRequest(BaseModel):
 
     agent_id: UUID
     ttl: str = Field(pattern=TTL_PATTERN)
+    limits: TokenLimits | None = None
 
 
 class TokenIssueResponse(BaseModel):

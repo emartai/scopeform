@@ -54,6 +54,7 @@ def issue_token(
     org_id: UUID | str,
     scopes: list[dict[str, Any]],
     ttl_string: str,
+    limits: dict[str, Any] | None = None,
 ) -> str:
     settings = get_settings()
     now = datetime.now(UTC)
@@ -67,6 +68,8 @@ def issue_token(
         "nbf": now,
         "exp": expires_at,
     }
+    if limits:
+        payload["limits"] = limits
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 

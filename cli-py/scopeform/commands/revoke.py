@@ -5,7 +5,7 @@ from rich.console import Console
 
 from scopeform.commands.deploy import _find_agent_by_name
 from scopeform.utils.api_client import ScopeformClient, ScopeformNotFoundError
-from scopeform.utils.config import load_config
+from scopeform.utils.config import load_config, resolve_api_url
 
 console = Console()
 
@@ -20,7 +20,7 @@ def _require_login() -> dict:
 
 def revoke_command(
     agent_name: str,
-    api_url: str = typer.Option("https://scopeform-production-f0b7.up.railway.app", "--api-url", help="Scopeform API base URL."),
+    api_url: str = typer.Option(None, "--api-url", help="Scopeform API base URL (default: env, saved login, or http://localhost:8000)."),
 ) -> None:
     """Revoke all active tokens for an agent in the current organisation."""
     config = _require_login()
@@ -33,7 +33,7 @@ def revoke_command(
         raise typer.Exit(code=0)
 
     try:
-        with ScopeformClient(base_url=api_url, token=config["token"]) as client:
+        with ScopeformClient(base_url=resolve_api_url(api_url), token=config["token"]) as client:
             agent = _find_agent_by_name(client, agent_name)
             client.revoke_token(agent_id=agent["id"])
     except ScopeformNotFoundError:

@@ -6,7 +6,7 @@ from rich.table import Table
 
 from scopeform.commands.deploy import _find_agent_by_name
 from scopeform.utils.api_client import ScopeformClient, ScopeformNotFoundError
-from scopeform.utils.config import load_config
+from scopeform.utils.config import load_config, resolve_api_url
 
 console = Console()
 
@@ -38,13 +38,13 @@ def logs_command(
     limit: int = typer.Option(20, "--limit", min=1, help="Maximum number of log entries to show."),
     service: str | None = typer.Option(None, "--service", help="Filter logs by service."),
     blocked_only: bool = typer.Option(False, "--blocked-only", help="Show only blocked calls."),
-    api_url: str = typer.Option("https://scopeform-production-f0b7.up.railway.app", "--api-url", help="Scopeform API base URL."),
+    api_url: str = typer.Option(None, "--api-url", help="Scopeform API base URL (default: env, saved login, or http://localhost:8000)."),
 ) -> None:
     """Display recent call logs for an agent."""
     config = _require_login()
 
     try:
-        with ScopeformClient(base_url=api_url, token=config["token"]) as client:
+        with ScopeformClient(base_url=resolve_api_url(api_url), token=config["token"]) as client:
             agent = _find_agent_by_name(client, agent_name)
             logs_response = client.get_logs(
                 agent_id=agent["id"],

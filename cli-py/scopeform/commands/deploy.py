@@ -13,7 +13,7 @@ from scopeform.utils.api_client import (
     ScopeformConflictError,
     ScopeformNotFoundError,
 )
-from scopeform.utils.config import load_config
+from scopeform.utils.config import load_config, resolve_api_url
 from scopeform.utils.yaml_utils import SCOPEFORM_YML_PATH, read_scopeform_yaml
 
 console = Console()
@@ -98,7 +98,7 @@ def _build_success_table(agent_name: str, environment: str, expires_at: str) -> 
 
 
 def deploy_command(
-    api_url: str = typer.Option("https://scopeform-production-f0b7.up.railway.app", "--api-url", help="Scopeform API base URL."),
+    api_url: str = typer.Option(None, "--api-url", help="Scopeform API base URL (default: env, saved login, or http://localhost:8000)."),
 ) -> None:
     """Register the current project as an agent and write its scoped token to .env."""
     config = _require_login()
@@ -111,7 +111,7 @@ def deploy_command(
         "scopes": scopeform_config["scopes"],
     }
 
-    with ScopeformClient(base_url=api_url, token=config["token"]) as client:
+    with ScopeformClient(base_url=resolve_api_url(api_url), token=config["token"]) as client:
         try:
             with console.status("Registering agent..."):
                 agent = client.register_agent(agent_payload)
@@ -120,7 +120,14 @@ def deploy_command(
             agent = _find_agent_by_name(client, identity["name"])
 
         with console.status("Issuing scoped token..."):
-            token_response = client.issue_token(agent["id"], scopeform_config["ttl"])
+            token_response = client.issue_token(
+                agent["id"],
+                scopeform_config["ttl"],
+                # Optional runtime limits (models allowlist, max_calls_per_hour,
+                # max_tokens_per_day) declared in scopeform.yml travel inside
+                # the token itself.
+                limits=scopeform_config.get("limits"),
+            )
 
     _write_env_token(token_response["token"])
     _ensure_gitignore_has_env()

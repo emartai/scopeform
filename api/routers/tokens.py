@@ -172,7 +172,8 @@ async def issue_agent_token(
             "Tokens cannot be issued for this agent.",
         )
 
-    signed_token = issue_token(agent.id, agent.org_id, agent.scopes, payload.ttl)
+    limits = payload.limits.model_dump(exclude_none=True) if payload.limits else None
+    signed_token = issue_token(agent.id, agent.org_id, agent.scopes, payload.ttl, limits=limits or None)
     token_payload = _decode_issued_token(signed_token)
     expires_at = datetime.fromtimestamp(token_payload["exp"], tz=UTC)
     token_record = Token(

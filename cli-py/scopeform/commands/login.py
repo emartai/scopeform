@@ -8,7 +8,7 @@ import typer
 from rich.console import Console
 
 from scopeform.utils.api_client import ScopeformClient, ScopeformClientError
-from scopeform.utils.config import save_config
+from scopeform.utils.config import resolve_api_url, save_config
 
 console = Console()
 
@@ -40,6 +40,8 @@ def login(api_url: str) -> None:
                 "token": auth_response["token"],
                 "email": auth_response["email"],
                 "expires_at": _decode_token_expiry(auth_response["token"]),
+                # Remember which instance we logged into so later commands target it.
+                "api_url": api_url,
             }
         )
         console.print(f"[green]\u2713 Logged in as {auth_response['email']}[/green]")
@@ -51,7 +53,7 @@ def login(api_url: str) -> None:
 
 
 def login_command(
-    api_url: str = typer.Option("https://scopeform-production-f0b7.up.railway.app", "--api-url", help="Scopeform API base URL."),
+    api_url: str = typer.Option(None, "--api-url", help="Scopeform API base URL (default: env, saved login, or http://localhost:8000)."),
 ) -> None:
     """Sign in with email and password."""
-    login(api_url)
+    login(resolve_api_url(api_url))

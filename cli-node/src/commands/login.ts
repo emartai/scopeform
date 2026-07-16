@@ -41,7 +41,9 @@ export async function loginCommand(apiUrl: string): Promise<void> {
     saveConfig({
       token,
       email: userEmail,
-      expires_at: decodeTokenExpiry(token)
+      expires_at: decodeTokenExpiry(token),
+      // Remember which instance we logged into so later commands target it.
+      api_url: apiUrl
     });
 
     console.log(chalk.green(`✓ Logged in as ${userEmail}`));

@@ -8,6 +8,27 @@ from typing import Any
 
 CONFIG_PATH = Path.home() / ".scopeform" / "config.json"
 
+# Scopeform is local-first: the CLI targets your own instance by default.
+DEFAULT_API_URL = "http://localhost:8000"
+
+
+def resolve_api_url(flag_value: str | None = None) -> str:
+    """Resolve the API base URL: --api-url flag > SCOPEFORM_API_URL env >
+    api_url saved at login > local default."""
+    if flag_value:
+        return flag_value
+    env_url = os.environ.get("SCOPEFORM_API_URL")
+    if env_url:
+        return env_url
+    if CONFIG_PATH.exists():
+        try:
+            saved = json.loads(CONFIG_PATH.read_text(encoding="utf-8")).get("api_url")
+            if saved:
+                return str(saved)
+        except (json.JSONDecodeError, OSError):
+            pass
+    return DEFAULT_API_URL
+
 
 def _parse_expires_at(value: str) -> datetime:
     normalized = value.replace("Z", "+00:00")

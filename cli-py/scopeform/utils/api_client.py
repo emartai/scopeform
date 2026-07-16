@@ -98,13 +98,6 @@ class ScopeformClient:
             return None
         return response.json()
 
-    def exchange_auth_token(self, clerk_session_token: str) -> dict[str, Any]:
-        return self._request(
-            "POST",
-            "/api/v1/auth/token",
-            json={"clerk_session_token": clerk_session_token},
-        )
-
     def login(self, email: str, password: str) -> dict[str, Any]:
         return self._request(
             "POST",
@@ -121,12 +114,11 @@ class ScopeformClient:
     def get_agent(self, agent_id: str) -> dict[str, Any]:
         return self._request("GET", f"/api/v1/agents/{agent_id}")
 
-    def issue_token(self, agent_id: str, ttl: str) -> dict[str, Any]:
-        return self._request(
-            "POST",
-            "/api/v1/tokens/issue",
-            json={"agent_id": agent_id, "ttl": ttl},
-        )
+    def issue_token(self, agent_id: str, ttl: str, limits: dict[str, Any] | None = None) -> dict[str, Any]:
+        payload: dict[str, Any] = {"agent_id": agent_id, "ttl": ttl}
+        if limits:
+            payload["limits"] = limits
+        return self._request("POST", "/api/v1/tokens/issue", json=payload)
 
     def revoke_token(self, *, jti: str | None = None, agent_id: str | None = None) -> dict[str, Any]:
         payload: dict[str, Any] = {}

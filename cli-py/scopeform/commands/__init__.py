@@ -3,6 +3,8 @@ from scopeform.commands.init import init_command
 from scopeform.commands.login import login, login_command
 from scopeform.commands.logs import logs_command
 from scopeform.commands.revoke import revoke_command
+from scopeform.commands.scan import scan_command
+from scopeform.commands.status import status_command
 
 __all__ = [
     "deploy_command",
@@ -11,4 +13,6 @@ __all__ = [
     "login_command",
     "logs_command",
     "revoke_command",
+    "scan_command",
+    "status_command",
 ]

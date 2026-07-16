@@ -62,6 +62,11 @@ class FakeRedis:
         self.store[key] = value
         return value
 
+    async def incrby(self, key: str, amount: int) -> int:
+        value = int(self.store.get(key, 0)) + int(amount)
+        self.store[key] = value
+        return value
+
     async def expire(self, key: str, seconds: int) -> bool:
         self.expiry[key] = seconds
         return True

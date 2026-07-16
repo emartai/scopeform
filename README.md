@@ -3,57 +3,92 @@
 </p>
 
 <h1 align="center">Scopeform</h1>
-<p align="center"><strong>Okta for AI agents.</strong> Register every agent, issue scoped short-lived tokens, and give your security team one place to monitor and revoke access.</p>
+<p align="center"><strong>The open-source Okta for AI agents.</strong> Register every agent, issue scoped short-lived tokens, and revoke any agent's access in one click — on your own infrastructure.</p>
 
 <p align="center">
-  <a href="https://scopeform-web.vercel.app">Dashboard</a> ·
-  <a href="https://scopeform-web.vercel.app/docs/quickstart">Quickstart</a> ·
-  <a href="#installation">Install CLI</a>
+  <a href="#quickstart-self-hosted">Quickstart</a> ·
+  <a href="#scopeform-scan--find-your-shadow-agent-credentials">scopeform scan</a> ·
+  <a href="#runtime-limits">Runtime limits</a> ·
+  <a href="https://scopeform-web.vercel.app">Hosted demo</a>
 </p>
 
 ---
 
 ## Why Scopeform?
 
-Your AI agents call OpenAI, GitHub, and Anthropic with long-lived API keys hardcoded in `.env` files. When an agent is compromised, you have no way to revoke just that agent's access without rotating the key for everyone.
+Your AI agents call OpenAI, GitHub, and Anthropic with long-lived API keys hardcoded in `.env` files. When an agent is compromised — or just goes into a retry loop at 3am — you have no way to revoke *that agent's* access without rotating the key for everyone, and no record of what it did.
 
-Scopeform fixes this. Each agent gets its own **scoped, short-lived token** — tied to the exact services and actions it needs, nothing more. Revoke one agent in one click without touching anything else.
+Scopeform fixes this. Each agent gets its own **scoped, short-lived token** — tied to the exact services, actions, models, and budgets it needs, nothing more. Revoke one agent in one click without touching anything else.
 
 ```
 Without Scopeform          With Scopeform
 ──────────────────         ──────────────────────────────
 OPENAI_API_KEY=sk-...  →   SCOPEFORM_TOKEN=eyJ... (24h, openai:chat.completions only)
 Shared across agents       Per-agent, per-service, revocable
-No audit trail             Full call log in dashboard
+No audit trail             Full call log you own
 No revocation              One-click revoke
+No spending guardrails     Model allowlists + call & token budgets
 ```
+
+**Free and open-source. Self-hosted by default** — your keys, your traffic, and your audit log never leave your infrastructure. A managed cloud is planned as an optional convenience; the core is free forever.
 
 ---
 
-## Quickstart
+## `scopeform scan` — find your shadow agent credentials
 
-### 1. Install the CLI
+No signup, no server, nothing leaves your machine:
 
-**Python**
 ```bash
 pip install scopeform
+scopeform scan
 ```
 
-**Node.js**
+```
+Scopeform Scan — 3 finding(s)
+┌──────┬──────────────────┬─────────────────────────────────────────────────────────┐
+│ Risk │ Location         │ Finding                                                 │
+├──────┼──────────────────┼─────────────────────────────────────────────────────────┤
+│ HIGH │ .env:1           │ OpenAI API key (sk-proj-a…) — unscoped, unrevocable     │
+│ HIGH │ agent.py:14      │ GitHub token (ghp_4f9c…) — unscoped, unrevocable        │
+│ MED  │ .github/…/ci.yml │ secrets.OPENAI_API_KEY passed directly to a step        │
+└──────┴──────────────────┴─────────────────────────────────────────────────────────┘
+
+Suggested scopeform.yml — scoped, short-lived, revocable: …
+```
+
+It reports raw keys in `.env` files, hardcoded keys in source, and CI workflows that hand secrets straight to scripts — with a suggested `scopeform.yml` to fix each one. Add `--json report.json` for CI; exit code is `1` when findings exist.
+
+---
+
+## Quickstart (self-hosted)
+
+### 1. Start your Scopeform instance
+
 ```bash
-npm install -g scopeform
+git clone https://github.com/emartai/scopeform
+cd scopeform
+cp .env.example .env   # then set JWT_SECRET and ENCRYPTION_KEY (instructions inside)
+docker compose up
 ```
 
-### 2. Sign up and log in
+That's the full stack: API on `:8000`, dashboard on `:3000`, PostgreSQL, and Redis — all yours.
+
+### 2. Install the CLI
 
 ```bash
-scopeform login
-# Email: you@example.com
-# Password: ••••••••
-# ✓ Logged in as you@example.com
+pip install scopeform        # Python
+npm install -g scopeform     # or Node.js
 ```
 
-### 3. Initialise your agent
+### 3. Create your account (on your own instance)
+
+```bash
+scopeform login              # defaults to http://localhost:8000
+```
+
+The CLI targets `http://localhost:8000` by default. Point it elsewhere with `--api-url`, `SCOPEFORM_API_URL`, or just log in once — the URL is remembered.
+
+### 4. Declare your agent
 
 ```bash
 cd my-agent/
@@ -78,61 +113,38 @@ scopes:
     actions:
       - repos.read
 
-integrations:
-  ci: github-actions
+# Optional runtime limits — enforced by the proxy, carried in the token
+limits:
+  models: [gpt-4o-mini]
+  max_calls_per_hour: 100
+  max_tokens_per_day: 200000
 ```
 
-### 4. Deploy
+### 5. Add your provider keys — to *your* instance
+
+Open your dashboard at `http://localhost:3000` → **Integrations** and add your OpenAI / Anthropic / GitHub keys. They're encrypted with your `ENCRYPTION_KEY` and stored in your database. No third party ever sees them.
+
+### 6. Deploy and point your SDK at your proxy
 
 ```bash
-scopeform deploy
+scopeform deploy    # registers the agent, writes SCOPEFORM_TOKEN to .env
 ```
-
-```
-✓ Registering agent...
-✓ Issuing scoped token...
-✓ Deploy successful.
-
-┌─────────────────┬──────────────────────────────┐
-│ Agent           │ support-agent                │
-│ Environment     │ production                   │
-│ Token expires   │ 2026-03-21 12:00 UTC         │
-│ Token written   │ .env                         │
-└─────────────────┴──────────────────────────────┘
-```
-
-Your scoped token is written to `.env` as `SCOPEFORM_TOKEN`. Use it in your agent instead of raw API keys.
-
-### 5. Add your provider key in the dashboard
-
-Go to **[Dashboard → Integrations](https://scopeform-web.vercel.app/dashboard/integrations)** and add your OpenAI (or Anthropic / GitHub) API key. Scopeform stores it encrypted and uses it to forward requests on your agent's behalf.
-
-### 6. Point your SDK at the Scopeform proxy
-
-Instead of calling OpenAI directly, point your SDK's base URL at Scopeform. Scopeform validates the token, checks scopes, logs the call, then forwards to the real provider.
 
 **Python (OpenAI)**
 ```python
-import os
-import openai
+import os, openai
 
 openai.api_key  = os.environ["SCOPEFORM_TOKEN"]
-openai.base_url = "https://scopeform-production-f0b7.up.railway.app/api/v1/proxy/openai/v1"
-
-response = openai.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[{"role": "user", "content": "Hello"}],
-)
+openai.base_url = "http://localhost:8000/api/v1/proxy/openai/v1"
 ```
 
 **Python (Anthropic)**
 ```python
-import os
-import anthropic
+import os, anthropic
 
 client = anthropic.Anthropic(
     api_key=os.environ["SCOPEFORM_TOKEN"],
-    base_url="https://scopeform-production-f0b7.up.railway.app/api/v1/proxy/anthropic/v1",
+    base_url="http://localhost:8000/api/v1/proxy/anthropic/v1",
 )
 ```
 
@@ -142,23 +154,41 @@ import OpenAI from "openai";
 
 const openai = new OpenAI({
   apiKey: process.env.SCOPEFORM_TOKEN,
-  baseURL: "https://scopeform-production-f0b7.up.railway.app/api/v1/proxy/openai/v1",
+  baseURL: "http://localhost:8000/api/v1/proxy/openai/v1",
 });
 ```
 
-If the agent tries to call a service or action not in its `scopeform.yml`, the proxy returns `403` and logs the blocked attempt — no call reaches the provider.
+The proxy validates the token, checks scopes and limits, logs the call, then forwards to the real provider. Out-of-scope calls return `403` and never reach the provider. Over-budget calls return `429`.
+
+### 7. Operate
+
+```bash
+scopeform status               # agent state, recent + blocked calls
+scopeform logs support-agent   # call log, --blocked-only to filter
+scopeform revoke support-agent # kill every token for this agent, now
+```
+
+Or use the dashboard: agent registry, call logs, one-click revoke.
 
 ---
 
-## Dashboard
+## Runtime limits
 
-Sign in at **[scopeform-web.vercel.app](https://scopeform-web.vercel.app)** to see all your agents, their status, token expiry, and last activity. Revoke any agent's tokens with one click.
+The most common agent incident isn't a stolen key — it's a runaway retry loop burning money overnight. Limits are declared in `scopeform.yml` and travel **inside the token**:
+
+| Limit | Effect |
+|---|---|
+| `models: [gpt-4o-mini]` | Requests for any other model are blocked with `403` |
+| `max_calls_per_hour: 100` | Calls beyond this return `429` for the rest of the hour |
+| `max_tokens_per_day: 200000` | Metered from real provider usage; exhausted budget returns `429` until tomorrow |
+
+Token metering applies to non-streaming responses; streaming calls still count toward the hourly call cap.
 
 ---
 
 ## GitHub Actions
 
-Add `SCOPEFORM_TOKEN` to your repo secrets (copy from `~/.scopeform/config.json` after logging in), then use the example workflow:
+Issue a fresh scoped token on every CI run instead of storing a long-lived credential:
 
 ```yaml
 - name: Deploy agent and issue scoped token
@@ -172,7 +202,7 @@ Add `SCOPEFORM_TOKEN` to your repo secrets (copy from `~/.scopeform/config.json`
     SCOPEFORM_TOKEN: ${{ env.AGENT_TOKEN }}
 ```
 
-See [`.github/workflows/scopeform-example.yml`](.github/workflows/scopeform-example.yml) for the full workflow.
+See [`.github/workflows/scopeform-example.yml`](.github/workflows/scopeform-example.yml).
 
 ---
 
@@ -184,20 +214,15 @@ See [`.github/workflows/scopeform-example.yml`](.github/workflows/scopeform-exam
 | **Anthropic** | `messages` |
 | **GitHub** | `repos.read` · `repos.write` · `issues.read` · `issues.write` · `pulls.read` |
 
-More integrations coming soon.
+More integrations coming — MCP server scoping is next on the roadmap.
 
 ---
 
 ## Pricing
 
-| | Free | Pro (coming soon) |
-|---|---|---|
-| Agents | 5 forever | Unlimited |
-| Token TTL | Up to 30 days | Up to 30 days |
-| Revocation | ✓ | ✓ |
-| Audit logs | ✓ | ✓ |
-| Team members | 1 | Unlimited |
-| Price | $0 | TBD |
+**Self-hosted: free forever.** Unlimited agents, full call history on your own database, every feature in this repo. No account with us, no credit card, no telemetry.
+
+A **managed cloud** (hosted proxy, team collaboration, cross-machine revocation) is planned as an optional paid convenience. The open-source core will never be feature-gated.
 
 ---
 
@@ -211,41 +236,27 @@ More integrations coming soon.
 │                         ▼                       │
 │              SCOPEFORM_TOKEN (.env)             │
 │                         │                       │
-│              agent.py reads token              │
+│              agent.py reads token               │
 └────────────────────┬────────────────────────────┘
                      │ API call with Bearer token
                      ▼
          ┌───────────────────────┐
-         │  Scopeform API        │  ← FastAPI on Railway
+         │  Scopeform API        │  ← FastAPI — YOUR infrastructure
          │  - Validate token     │
          │  - Check scope        │
+         │  - Enforce limits     │
          │  - Log call           │
          └───────────┬───────────┘
                      │
          ┌───────────▼───────────┐
-         │  Dashboard            │  ← Next.js on Vercel
-         │  - Agent list         │
+         │  Dashboard            │  ← Next.js — YOUR infrastructure
+         │  - Agent registry     │
          │  - Call logs          │
-         │  - Revoke tokens      │
+         │  - One-click revoke   │
          └───────────────────────┘
 ```
 
----
-
-## Self-hosting
-
-```bash
-git clone https://github.com/emartai/scopeform
-cd scopeform
-
-# Copy and fill in environment variables
-cp .env.example .env
-
-# Start everything
-docker compose up
-```
-
-Requires: Docker, PostgreSQL, Redis.
+Availability stance: when the revocation store is unreachable, the proxy **fails closed** (blocks) — a security tool should never quietly stop enforcing.
 
 ---
 
@@ -270,4 +281,4 @@ cd cli-node && npm install && npm test
 
 ---
 
-<p align="center">Built with ♥ · <a href="https://scopeform-web.vercel.app">scopeform-web.vercel.app</a></p>
+<p align="center">An <a href="https://github.com/emartai">Emart AI</a> project · MIT licensed · Built in the open</p>
