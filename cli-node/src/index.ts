@@ -14,7 +14,7 @@ const program = new Command();
 program
   .name("scopeform")
   .description("Identity and access management for AI agents")
-  .version("0.1.0")
+  .version("0.2.0")
   .option(
     "--api-url <url>",
     "Scopeform API base URL (default: SCOPEFORM_API_URL env, the URL saved at login, or http://localhost:8000)",
