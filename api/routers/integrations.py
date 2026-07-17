@@ -20,7 +20,9 @@ from api.schemas.integration import (
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
-SUPPORTED_SERVICES = ("openai", "anthropic", "github")
+# "github_app" holds GitHub App broker credentials as an encrypted JSON blob
+# ({"app_id", "installation_id", "private_key"}) — see api/routers/broker.py.
+SUPPORTED_SERVICES = ("openai", "anthropic", "github", "github_app")
 
 
 def _fernet() -> Fernet:

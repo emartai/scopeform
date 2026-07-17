@@ -47,6 +47,24 @@ PROVIDER_BASE_URLS: dict[str, str] = {
     "github": "https://api.github.com",
 }
 
+# One shared upstream client (connection pooling) instead of one per request.
+_client: httpx.AsyncClient | None = None
+
+
+def _get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(timeout=120)
+    return _client
+
+
+def _fail_closed(exc: Exception) -> HTTPException:
+    """Limit state unavailable → block. A security proxy must not quietly stop enforcing."""
+    return HTTPException(
+        503,
+        detail="Limit enforcement store unavailable — failing closed.",
+    )
+
 # ── Action resolution ─────────────────────────────────────────────────────────
 
 def _resolve_action(service: str, method: str, path: str) -> str:
@@ -201,9 +219,15 @@ async def proxy(
     max_calls = limits.get("max_calls_per_hour")
     if max_calls:
         hour_key = _hour_key(agent_id_str)
-        current_calls = await redis_core.redis_client.incr(hour_key)
-        if current_calls == 1:
-            await redis_core.redis_client.expire(hour_key, 3900)
+        try:
+            current_calls = await redis_core.redis_client.incr(hour_key)
+            if current_calls == 1:
+                await redis_core.redis_client.expire(hour_key, 3900)
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001 - fail closed on store failure
+            await _log_call(False)
+            raise _fail_closed(exc) from exc
         if current_calls > int(max_calls):
             await _log_call(False)
             raise HTTPException(
@@ -213,7 +237,11 @@ async def proxy(
 
     max_tokens = limits.get("max_tokens_per_day")
     if max_tokens:
-        used_raw = await redis_core.redis_client.get(_day_key(agent_id_str))
+        try:
+            used_raw = await redis_core.redis_client.get(_day_key(agent_id_str))
+        except Exception as exc:  # noqa: BLE001 - fail closed on store failure
+            await _log_call(False)
+            raise _fail_closed(exc) from exc
         if used_raw is not None and int(used_raw) >= int(max_tokens):
             await _log_call(False)
             raise HTTPException(
@@ -251,8 +279,7 @@ async def proxy(
 
     is_streaming_request = bool(request_json and request_json.get("stream"))
 
-    # Keep the client open for the full duration of streaming
-    client = httpx.AsyncClient(timeout=120)
+    client = _get_client()
     provider_response = await client.send(
         client.build_request(
             method=request.method,
@@ -272,7 +299,6 @@ async def proxy(
             content = await provider_response.aread()
         finally:
             await provider_response.aclose()
-            await client.aclose()
 
         response_json = _parse_json_body(content)
         if provider_response.status_code < 400 and response_json is not None:
@@ -300,7 +326,6 @@ async def proxy(
                 yield chunk
         finally:
             await provider_response.aclose()
-            await client.aclose()
 
     return StreamingResponse(
         _stream_and_close(),

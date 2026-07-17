@@ -5,6 +5,7 @@ from scopeform.commands.logs import logs_command
 from scopeform.commands.revoke import revoke_command
 from scopeform.commands.scan import scan_command
 from scopeform.commands.status import status_command
+from scopeform.commands.up import up_command
 
 __all__ = [
     "deploy_command",
@@ -15,4 +16,5 @@ __all__ = [
     "revoke_command",
     "scan_command",
     "status_command",
+    "up_command",
 ]

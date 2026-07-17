@@ -11,6 +11,7 @@ from scopeform.commands import (
     revoke_command,
     scan_command,
     status_command,
+    up_command,
 )
 from scopeform.utils.config import resolve_api_url
 
@@ -66,6 +67,15 @@ def deploy(ctx: typer.Context) -> None:
 @app.command("revoke")
 def revoke(agent_name: str, ctx: typer.Context) -> None:
     revoke_command(agent_name=agent_name, api_url=ctx.obj["api_url"])
+
+
+@app.command("up")
+def up(
+    stop: bool = typer.Option(False, "--stop", help="Stop the local stack instead of starting it."),
+    reset: bool = typer.Option(False, "--reset", help="Regenerate the compose file (keeps your .env secrets)."),
+) -> None:
+    """Start a full local Scopeform stack — API, dashboard, Postgres, Redis."""
+    up_command(stop=stop, reset=reset)
 
 
 @app.command("scan")

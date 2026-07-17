@@ -44,7 +44,12 @@ export async function deployCommand(apiUrl: string): Promise<void> {
   }
 
   const tokenSpinner = ora("Issuing scoped token...").start();
-  const tokenResponse = await client.issueToken(String(agent.id), String(scopeformConfig.ttl));
+  const tokenResponse = await client.issueToken(
+    String(agent.id),
+    String(scopeformConfig.ttl),
+    // Optional runtime limits from scopeform.yml travel inside the token.
+    (scopeformConfig.limits as Record<string, unknown> | undefined) ?? null,
+  );
   tokenSpinner.succeed("Issuing scoped token...");
 
   writeEnvToken(String(tokenResponse.token));
@@ -60,4 +65,7 @@ export async function deployCommand(apiUrl: string): Promise<void> {
   if ((scopeformConfig.integrations as Record<string, string>).ci === "github-actions") {
     console.log("Add SCOPEFORM_TOKEN to your GitHub Actions secrets");
   }
+
+  console.log("\nREADME badge — shows this agent's live credential status:");
+  console.log(`  ![Scopeform](${apiUrl}/api/v1/badges/agent/${String(agent.id)})`);
 }

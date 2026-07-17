@@ -141,3 +141,7 @@ def deploy_command(
     )
     if scopeform_config.get("integrations", {}).get("ci") == "github-actions":
         console.print("Add SCOPEFORM_TOKEN to your GitHub Actions secrets")
+
+    badge_url = f"{resolve_api_url(api_url)}/api/v1/badges/agent/{agent['id']}"
+    console.print("\n[bold]README badge[/bold] — shows this agent's live credential status:")
+    console.print(f"  ![Scopeform]({badge_url})")

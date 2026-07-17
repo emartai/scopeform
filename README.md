@@ -62,22 +62,28 @@ It reports raw keys in `.env` files, hardcoded keys in source, and CI workflows 
 
 ## Quickstart (self-hosted)
 
-### 1. Start your Scopeform instance
+### 1. Install the CLI
+
+```bash
+pip install scopeform        # Python
+npm install -g scopeform     # or Node.js
+```
+
+### 2. Start your Scopeform instance — one command
+
+```bash
+scopeform up
+```
+
+That's the full stack on your machine: API on `:8000`, dashboard on `:3000`, PostgreSQL, and Redis. Secrets are generated automatically into `~/.scopeform/stack/.env` (kept local, `chmod 600`). Stop with `scopeform up --stop`. Requires Docker.
+
+Prefer to run from source?
 
 ```bash
 git clone https://github.com/emartai/scopeform
 cd scopeform
 cp .env.example .env   # then set JWT_SECRET and ENCRYPTION_KEY (instructions inside)
 docker compose up
-```
-
-That's the full stack: API on `:8000`, dashboard on `:3000`, PostgreSQL, and Redis — all yours.
-
-### 2. Install the CLI
-
-```bash
-pip install scopeform        # Python
-npm install -g scopeform     # or Node.js
 ```
 
 ### 3. Create your account (on your own instance)
@@ -183,6 +189,34 @@ The most common agent incident isn't a stolen key — it's a runaway retry loop 
 | `max_tokens_per_day: 200000` | Metered from real provider usage; exhausted budget returns `429` until tomorrow |
 
 Token metering applies to non-streaming responses; streaming calls still count toward the hourly call cap.
+
+---
+
+## GitHub broker — native scoped tokens, no proxying
+
+Where a provider supports native scoped credentials, Scopeform **brokers** them instead of sitting in the traffic path. GitHub Apps do exactly this:
+
+1. Create a GitHub App on your org and install it on the repos your agents need.
+2. Store its credentials in your dashboard under **Integrations → github_app** (JSON: `{"app_id", "installation_id", "private_key"}`).
+3. At runtime the agent exchanges its Scopeform token for a **real GitHub installation token**, scoped to exactly the permissions its `scopeform.yml` declares (`repos.read` → `contents:read`, etc.), minted by GitHub with a ~1h TTL:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/broker/github \
+  -H "Authorization: Bearer $SCOPEFORM_TOKEN"
+# → {"token": "ghs_…", "expires_at": "…", "permissions": {"contents": "read"}}
+```
+
+Your GitHub traffic goes straight to GitHub. The proxy path (with a stored PAT) still works if you'd rather not set up an App.
+
+---
+
+## README badge
+
+`scopeform deploy` prints a badge snippet showing the agent's live credential status — green (scoped token active), amber (expired / none), red (revoked):
+
+```markdown
+![Scopeform](http://your-instance/api/v1/badges/agent/<agent-id>)
+```
 
 ---
 

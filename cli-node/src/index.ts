@@ -5,6 +5,8 @@ import { initCommand } from "./commands/init";
 import { loginCommand } from "./commands/login";
 import { logsCommand } from "./commands/logs";
 import { revokeCommand } from "./commands/revoke";
+import { scanCommand } from "./commands/scan";
+import { statusCommand } from "./commands/status";
 import { resolveApiUrl } from "./utils/config";
 
 const program = new Command();
@@ -48,6 +50,23 @@ program
   .action(async (agentName: string) => {
     const apiUrl = resolveApiUrl(program.opts<{ apiUrl?: string }>().apiUrl);
     await revokeCommand(agentName, apiUrl);
+  });
+
+program
+  .command("scan")
+  .description("Scan for raw agent credentials — fully local, no login required")
+  .argument("[path]", "Directory to scan", ".")
+  .option("--json <file>", "Also write the findings report to a JSON file")
+  .action(async (target: string, options: { json?: string }) => {
+    await scanCommand(target, options);
+  });
+
+program
+  .command("status")
+  .description("Show the current state of the agent declared in ./scopeform.yml")
+  .action(async () => {
+    const apiUrl = resolveApiUrl(program.opts<{ apiUrl?: string }>().apiUrl);
+    await statusCommand(apiUrl);
   });
 
 program

@@ -19,4 +19,5 @@ COPY alembic.ini /app/alembic.ini
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Apply DB migrations, then serve. A fresh database gets its schema on first boot.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
