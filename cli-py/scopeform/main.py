@@ -74,7 +74,7 @@ def up(
     stop: bool = typer.Option(False, "--stop", help="Stop the local stack instead of starting it."),
     reset: bool = typer.Option(False, "--reset", help="Regenerate the compose file (keeps your .env secrets)."),
 ) -> None:
-    """Start a full local Scopeform stack — API, dashboard, Postgres, Redis."""
+    """Start a full local Scopeform stack -- API, dashboard, Postgres, Redis."""
     up_command(stop=stop, reset=reset)
 
 
@@ -83,7 +83,7 @@ def scan(
     path: str = typer.Argument(".", help="Directory to scan (default: current directory)."),
     json_out: str | None = typer.Option(None, "--json", help="Also write the findings report to a JSON file."),
 ) -> None:
-    """Scan for raw agent credentials — fully local, no login required."""
+    """Scan for raw agent credentials -- fully local, no login required."""
     from pathlib import Path
 
     scan_command(path=Path(path), json_out=Path(json_out) if json_out else None)

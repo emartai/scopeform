@@ -1,6 +1,5 @@
+"""scopeform status -- current state of the agent declared in ./scopeform.yml."""
 from __future__ import annotations
-
-"""scopeform status — current state of the agent declared in ./scopeform.yml."""
 
 from typing import Any
 
@@ -47,7 +46,7 @@ def status_command(
         f"{scope.get('service')}:{'|'.join(scope.get('actions', []))}" for scope in scopes
     ) or "(none)"
 
-    table = Table(title=f"Scopeform Status — {agent_name}")
+    table = Table(title=f"Scopeform Status -- {agent_name}")
     table.add_column("Field", style="cyan")
     table.add_column("Value", style="white")
     table.add_row("Status", str(agent.get("status", "unknown")))
