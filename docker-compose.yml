@@ -33,13 +33,13 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://user:pass@postgres:5432/scopeform
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: replace-with-64-char-hex-string-placeholder
+      # Override these in a .env file next to this compose file (see .env.example).
+      JWT_SECRET: ${JWT_SECRET:-replace-with-64-char-hex-string}
       JWT_ALGORITHM: HS256
-      CLERK_SECRET_KEY: clerk_secret_key_placeholder
-      CLERK_PUBLISHABLE_KEY: clerk_publishable_key_placeholder
+      # REQUIRED for adding provider API keys — see .env.example for how to generate.
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
       API_BASE_URL: http://localhost:8000
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: clerk_publishable_key_placeholder
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+      FRONTEND_URL: http://localhost:3000
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,6 +56,20 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://api:8000
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
 
 volumes:
   postgres_data:

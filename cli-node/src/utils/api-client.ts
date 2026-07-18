@@ -80,12 +80,6 @@ export class ScopeformClient {
     }
   }
 
-  async exchangeAuthToken(clerkSessionToken: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>("POST", "/api/v1/auth/token", {
-      data: { clerk_session_token: clerkSessionToken },
-    });
-  }
-
   async login(email: string, password: string): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>("POST", "/api/v1/auth/login", {
       data: { email, password },
@@ -104,10 +98,16 @@ export class ScopeformClient {
     return this.request<Record<string, unknown>>("GET", `/api/v1/agents/${agentId}`);
   }
 
-  async issueToken(agentId: string, ttl: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>("POST", "/api/v1/tokens/issue", {
-      data: { agent_id: agentId, ttl },
-    });
+  async issueToken(
+    agentId: string,
+    ttl: string,
+    limits?: Record<string, unknown> | null,
+  ): Promise<Record<string, unknown>> {
+    const data: Record<string, unknown> = { agent_id: agentId, ttl };
+    if (limits && Object.keys(limits).length > 0) {
+      data.limits = limits;
+    }
+    return this.request<Record<string, unknown>>("POST", "/api/v1/tokens/issue", { data });
   }
 
   async revokeToken(params: { jti?: string; agent_id?: string }): Promise<Record<string, unknown>> {

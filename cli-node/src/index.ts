@@ -5,20 +5,26 @@ import { initCommand } from "./commands/init";
 import { loginCommand } from "./commands/login";
 import { logsCommand } from "./commands/logs";
 import { revokeCommand } from "./commands/revoke";
+import { scanCommand } from "./commands/scan";
+import { statusCommand } from "./commands/status";
+import { resolveApiUrl } from "./utils/config";
 
 const program = new Command();
 
 program
   .name("scopeform")
   .description("Identity and access management for AI agents")
-  .version("0.1.0")
-  .option("--api-url <url>", "Scopeform API base URL", process.env.SCOPEFORM_API_URL ?? "https://scopeform-production-f0b7.up.railway.app");
+  .version("0.2.0")
+  .option(
+    "--api-url <url>",
+    "Scopeform API base URL (default: SCOPEFORM_API_URL env, the URL saved at login, or http://localhost:8000)",
+  );
 
 program
   .command("login")
   .description("Sign in with email and password")
   .action(async () => {
-    const apiUrl = program.opts<{ apiUrl: string }>().apiUrl;
+    const apiUrl = resolveApiUrl(program.opts<{ apiUrl?: string }>().apiUrl);
     await loginCommand(apiUrl);
   });
 
@@ -33,7 +39,7 @@ program
   .command("deploy")
   .description("Register the current project and issue a scoped token")
   .action(async () => {
-    const apiUrl = program.opts<{ apiUrl: string }>().apiUrl;
+    const apiUrl = resolveApiUrl(program.opts<{ apiUrl?: string }>().apiUrl);
     await deployCommand(apiUrl);
   });
 
@@ -42,8 +48,25 @@ program
   .description("Revoke all active tokens for an agent")
   .argument("<agent-name>")
   .action(async (agentName: string) => {
-    const apiUrl = program.opts<{ apiUrl: string }>().apiUrl;
+    const apiUrl = resolveApiUrl(program.opts<{ apiUrl?: string }>().apiUrl);
     await revokeCommand(agentName, apiUrl);
+  });
+
+program
+  .command("scan")
+  .description("Scan for raw agent credentials — fully local, no login required")
+  .argument("[path]", "Directory to scan", ".")
+  .option("--json <file>", "Also write the findings report to a JSON file")
+  .action(async (target: string, options: { json?: string }) => {
+    await scanCommand(target, options);
+  });
+
+program
+  .command("status")
+  .description("Show the current state of the agent declared in ./scopeform.yml")
+  .action(async () => {
+    const apiUrl = resolveApiUrl(program.opts<{ apiUrl?: string }>().apiUrl);
+    await statusCommand(apiUrl);
   });
 
 program
@@ -58,7 +81,7 @@ program
       agentName: string,
       options: { limit: number; service?: string; blockedOnly?: boolean },
     ) => {
-      const apiUrl = program.opts<{ apiUrl: string }>().apiUrl;
+      const apiUrl = resolveApiUrl(program.opts<{ apiUrl?: string }>().apiUrl);
       await logsCommand(agentName, apiUrl, options);
     },
   );

@@ -1,61 +1,66 @@
+"""scopeform status -- current state of the agent declared in ./scopeform.yml."""
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from typing import Any
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
-from scopeform.commands.deploy import _find_agent_by_name, _require_scopeform_yaml
+from scopeform.commands.deploy import _find_agent_by_name, _require_login, _require_scopeform_yaml
 from scopeform.utils.api_client import ScopeformClient, ScopeformNotFoundError
-from scopeform.utils.config import load_config
+from scopeform.utils.config import resolve_api_url
 
 console = Console()
 
 
-def _require_login() -> dict:
-    config = load_config()
-    if config is None:
-        console.print("[bold red]Run `scopeform login` first[/bold red]")
-        raise typer.Exit(code=1)
-    return config
-
-
-def _format_timestamp(value: str | None) -> str:
-    if value is None:
-        return "Never"
-    normalized = value.replace("Z", "+00:00")
-    dt = datetime.fromisoformat(normalized)
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=UTC)
-    return dt.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
-
-
-def _build_status_table(agent: dict) -> Table:
-    table = Table(title=f"Status for {agent['name']}")
-    table.add_column("Field", style="cyan")
-    table.add_column("Value", style="white")
-    table.add_row("Agent", agent["name"])
-    table.add_row("Environment", agent["environment"])
-    table.add_row("State", agent["status"])
-    table.add_row("Last activity", _format_timestamp(agent.get("last_seen_at")))
-    table.add_row("Scopes", str(len(agent.get("scopes", []))))
-    return table
+def _summarise_logs(logs_response: dict[str, Any]) -> tuple[int, int, str | None]:
+    items = logs_response.get("items", [])
+    total = len(items)
+    blocked = sum(1 for entry in items if not entry.get("allowed", True))
+    last_call = items[0].get("called_at") if items else None
+    return total, blocked, last_call
 
 
 def status_command(
-    api_url: str = typer.Option("https://scopeform-production-f0b7.up.railway.app", "--api-url", help="Scopeform API base URL."),
+    api_url: str = typer.Option(None, "--api-url", help="Scopeform API base URL (default: env, saved login, or http://localhost:8000)."),
 ) -> None:
-    """Display the current state of the agent registered in this project."""
+    """Show the current state of the agent declared in ./scopeform.yml."""
     config = _require_login()
     scopeform_config = _require_scopeform_yaml()
-    identity = scopeform_config["identity"]
+    agent_name = scopeform_config["identity"]["name"]
 
     try:
-        with ScopeformClient(base_url=api_url, token=config["token"]) as client:
-            agent = _find_agent_by_name(client, identity["name"])
+        with ScopeformClient(base_url=resolve_api_url(api_url), token=config["token"]) as client:
+            agent = _find_agent_by_name(client, agent_name)
+            logs_response = client.get_logs(agent_id=agent["id"], limit=50)
     except ScopeformNotFoundError:
-        console.print(f"[bold red]Agent '{identity['name']}' not found. Run `scopeform deploy` first.[/bold red]")
+        console.print(
+            f"[yellow]Agent '{agent_name}' is not registered yet.[/yellow] Run [cyan]scopeform deploy[/cyan] first."
+        )
         raise typer.Exit(code=1) from None
 
-    console.print(_build_status_table(agent))
+    total, blocked, last_call = _summarise_logs(logs_response)
+    scopes = agent.get("scopes", [])
+    scope_summary = ", ".join(
+        f"{scope.get('service')}:{'|'.join(scope.get('actions', []))}" for scope in scopes
+    ) or "(none)"
+
+    table = Table(title=f"Scopeform Status -- {agent_name}")
+    table.add_column("Field", style="cyan")
+    table.add_column("Value", style="white")
+    table.add_row("Status", str(agent.get("status", "unknown")))
+    table.add_row("Environment", str(agent.get("environment", "unknown")))
+    table.add_row("Owner", str(agent.get("owner_email", "unknown")))
+    table.add_row("Scopes", scope_summary)
+    table.add_row("Last seen", str(agent.get("last_seen_at") or "never"))
+    table.add_row("Recent calls (last 50)", str(total))
+    table.add_row("Blocked calls (last 50)", str(blocked))
+    if last_call:
+        table.add_row("Most recent call", str(last_call))
+    console.print(table)
+
+    if blocked:
+        console.print(
+            f"[yellow]{blocked} recent call(s) were blocked.[/yellow] Run [cyan]scopeform logs {agent_name} --blocked-only[/cyan] to inspect."
+        )

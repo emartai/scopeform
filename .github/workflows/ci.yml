@@ -2,6 +2,8 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches: [main]
 
 jobs:
   test-api:
@@ -36,9 +38,6 @@ jobs:
       JWT_SECRET: ci-jwt-secret
       JWT_ALGORITHM: HS256
       JWT_EXPIRE_MINUTES: "60"
-      CLERK_SECRET_KEY: sk_test_ci
-      CLERK_PUBLISHABLE_KEY: pk_test_ci
-      CLERK_API_URL: https://api.clerk.com
       API_HOST: 0.0.0.0
       API_PORT: "8000"
       APP_ENV: test
@@ -132,8 +131,7 @@ jobs:
       - name: Run Next build
         working-directory: web
         env:
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ci
-          CLERK_SECRET_KEY: sk_test_ci
+          NEXT_PUBLIC_API_URL: http://localhost:8000
         run: npm run build
 
       - name: Install Playwright browsers

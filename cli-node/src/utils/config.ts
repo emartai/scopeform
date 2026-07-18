@@ -4,11 +4,40 @@ import path from "node:path";
 
 export const CONFIG_PATH = path.join(os.homedir(), ".scopeform", "config.json");
 
+// Scopeform is local-first: the CLI targets your own instance by default.
+export const DEFAULT_API_URL = "http://localhost:8000";
+
 type ScopeformConfig = {
   token: string;
   email: string;
   expires_at?: string;
+  api_url?: string;
 };
+
+/**
+ * Resolve the API base URL: --api-url flag > SCOPEFORM_API_URL env >
+ * api_url saved at login > local default.
+ */
+export function resolveApiUrl(flagValue?: string): string {
+  if (flagValue) {
+    return flagValue;
+  }
+  const envUrl = process.env.SCOPEFORM_API_URL;
+  if (envUrl) {
+    return envUrl;
+  }
+  try {
+    if (fs.existsSync(CONFIG_PATH)) {
+      const saved = (JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8")) as ScopeformConfig).api_url;
+      if (saved) {
+        return saved;
+      }
+    }
+  } catch {
+    // fall through to default
+  }
+  return DEFAULT_API_URL;
+}
 
 function parseExpiresAt(value: string): Date {
   return new Date(value);

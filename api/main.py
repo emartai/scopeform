@@ -12,7 +12,7 @@ from api.core.config import get_settings
 from api.core.database import check_database_connection, engine
 from api.core.openapi import build_openapi_schema
 from api.core.redis import check_redis_connection, redis_client
-from api.routers import agents, auth, integrations, logs, proxy, tokens
+from api.routers import agents, auth, badges, broker, integrations, logs, proxy, tokens
 
 settings = get_settings()
 
@@ -90,6 +90,8 @@ def create_app() -> FastAPI:
     api_router.include_router(tokens.router)
     api_router.include_router(logs.router)
     api_router.include_router(integrations.router)
+    api_router.include_router(badges.router)
+    api_router.include_router(broker.router)
     api_router.include_router(proxy.router)
     app.include_router(api_router)
     app.openapi = lambda: build_openapi_schema(app)

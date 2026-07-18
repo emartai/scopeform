@@ -3,15 +3,6 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, EmailStr
 
 
-class AuthTokenRequest(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-        json_schema_extra={"example": {"clerk_session_token": "sess_test_123"}},
-    )
-
-    clerk_session_token: str
-
-
 class RegisterRequest(BaseModel):
     model_config = ConfigDict(
         extra="forbid",

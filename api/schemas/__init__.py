@@ -5,7 +5,7 @@ from api.schemas.agent import (
     AgentUpdate,
     ScopeDefinition,
 )
-from api.schemas.auth import AuthTokenRequest, AuthTokenResponse
+from api.schemas.auth import AuthTokenResponse
 from api.schemas.log import LogEntry, LogListResponse
 from api.schemas.token import (
     TokenIssueRequest,
@@ -21,7 +21,6 @@ __all__ = [
     "AgentListResponse",
     "AgentResponse",
     "AgentUpdate",
-    "AuthTokenRequest",
     "AuthTokenResponse",
     "LogEntry",
     "LogListResponse",

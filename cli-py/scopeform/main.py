@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-
 import typer
 
 from scopeform import __version__
@@ -11,8 +9,11 @@ from scopeform.commands import (
     login_command,
     logs_command,
     revoke_command,
+    scan_command,
     status_command,
+    up_command,
 )
+from scopeform.utils.config import resolve_api_url
 
 app = typer.Typer(
     name="scopeform",
@@ -31,10 +32,10 @@ def _version_callback(value: bool) -> None:
 @app.callback()
 def main(
     ctx: typer.Context,
-    api_url: str = typer.Option(
-        os.getenv("SCOPEFORM_API_URL", "https://scopeform-production-f0b7.up.railway.app"),
+    api_url: str | None = typer.Option(
+        None,
         "--api-url",
-        help="Scopeform API base URL.",
+        help="Scopeform API base URL (default: SCOPEFORM_API_URL env, the URL saved at login, or http://localhost:8000).",
     ),
     version: bool | None = typer.Option(
         None,
@@ -45,7 +46,7 @@ def main(
     ),
 ) -> None:
     """Configure shared CLI options."""
-    ctx.obj = {"api_url": api_url}
+    ctx.obj = {"api_url": resolve_api_url(api_url)}
 
 
 @app.command("login")
@@ -68,6 +69,32 @@ def revoke(agent_name: str, ctx: typer.Context) -> None:
     revoke_command(agent_name=agent_name, api_url=ctx.obj["api_url"])
 
 
+@app.command("up")
+def up(
+    stop: bool = typer.Option(False, "--stop", help="Stop the local stack instead of starting it."),
+    reset: bool = typer.Option(False, "--reset", help="Regenerate the compose file (keeps your .env secrets)."),
+) -> None:
+    """Start a full local Scopeform stack -- API, dashboard, Postgres, Redis."""
+    up_command(stop=stop, reset=reset)
+
+
+@app.command("scan")
+def scan(
+    path: str = typer.Argument(".", help="Directory to scan (default: current directory)."),
+    json_out: str | None = typer.Option(None, "--json", help="Also write the findings report to a JSON file."),
+) -> None:
+    """Scan for raw agent credentials -- fully local, no login required."""
+    from pathlib import Path
+
+    scan_command(path=Path(path), json_out=Path(json_out) if json_out else None)
+
+
+@app.command("status")
+def status(ctx: typer.Context) -> None:
+    """Show the current state of the agent declared in ./scopeform.yml."""
+    status_command(api_url=ctx.obj["api_url"])
+
+
 @app.command("logs")
 def logs(
     agent_name: str,
@@ -83,8 +110,3 @@ def logs(
         blocked_only=blocked_only,
         api_url=ctx.obj["api_url"],
     )
-
-
-@app.command("status")
-def status(ctx: typer.Context) -> None:
-    status_command(api_url=ctx.obj["api_url"])

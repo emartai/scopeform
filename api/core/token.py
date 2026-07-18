@@ -54,6 +54,7 @@ def issue_token(
     org_id: UUID | str,
     scopes: list[dict[str, Any]],
     ttl_string: str,
+    limits: dict[str, Any] | None = None,
 ) -> str:
     settings = get_settings()
     now = datetime.now(UTC)
@@ -67,6 +68,8 @@ def issue_token(
         "nbf": now,
         "exp": expires_at,
     }
+    if limits:
+        payload["limits"] = limits
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
@@ -87,7 +90,20 @@ async def verify_token(token: str) -> dict:
     if not jti:
         raise _unauthorized_exception()
 
-    revoked = await redis_client.get(f"revoked:{jti}")
+    # Fail closed: if the revocation store is unreachable we cannot prove the
+    # token hasn't been revoked, so enforcement blocks rather than waves through.
+    try:
+        revoked = await redis_client.get(f"revoked:{jti}")
+    except Exception as exc:  # noqa: BLE001 - any store failure must block
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "type": "about:blank",
+                "title": "Service Unavailable",
+                "status": status.HTTP_503_SERVICE_UNAVAILABLE,
+                "detail": "Revocation check unavailable — failing closed.",
+            },
+        ) from exc
     if revoked:
         raise _unauthorized_exception()
 
